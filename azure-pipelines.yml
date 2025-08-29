@@ -1,0 +1,48 @@
+trigger:
+  - master
+
+pool:
+  vmImage: 'macos-latest'
+
+variables:
+  scheme: 'CryptoPrices-iOS'
+  project: 'CryptoPrices-iOS.xcodeproj'
+  testCoverageThreshold: 85
+
+stages:
+  - stage: BuildAndTest
+    jobs:
+      - job: Build
+        steps:
+          - task: Checkout@1
+
+          - script: |
+              xcodebuild -project $(project) \
+                         -scheme $(scheme) \
+                         -sdk iphonesimulator \
+                         -destination 'platform=iOS Simulator,name=iPhone 14,OS=17.4' \
+                         build
+            displayName: 'Build Xcode project'
+
+          - script: |
+              xcodebuild test \
+                         -project $(project) \
+                         -scheme $(scheme) \
+                         -sdk iphonesimulator \
+                         -destination 'platform=iOS Simulator,name=iPhone 14,OS=17.4' \
+                         -enableCodeCoverage YES \
+                         | tee xcode-test.log
+            displayName: 'Run Unit Tests with Coverage'
+
+          - script: |
+              COVERAGE=$(xcrun llvm-cov report \
+                           -instr-profile $(BUILD_SOURCESDIRECTORY)/$(scheme)/DerivedData/Build/Intermediates.noindex/CodeCoverage.profdata \
+                           $(BUILD_SOURCESDIRECTORY)/$(scheme)/DerivedData/Build/Products/Debug-iphonesimulator/$(scheme).app/$(scheme) \
+                           | grep 'TOTAL' | awk '{print $2}' | sed 's/%//')
+              echo "Coverage: $COVERAGE%"
+              if (( $(echo "$COVERAGE < $(testCoverageThreshold)" | bc -l) )); then
+                  echo "Code coverage is below threshold ($(testCoverageThreshold)%)"
+                  exit 1
+              fi
+            displayName: 'Check Test Coverage'
+
