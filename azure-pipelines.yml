@@ -7,43 +7,35 @@ pool:
   vmImage: 'macos-latest'
 
 variables:
-  scheme: 'CryptoPrices-iOS'
-  project: 'CryptoPrices-iOS.xcodeproj'
+  scheme: 'CryptoPrices'
+  project: 'CryptoPrices.xcodeproj'
   testCoverageThreshold: 85
 
 stages:
-- stage: BuildAndTest
-  jobs:
-  - job: Build
-    steps:
-    - task: Checkout@1
+  - stage: BuildAndTest
+    jobs:
+      - job: Build
+        steps:
+          - checkout: self
 
-    - task: CmdLine@2
-      displayName: 'Build Xcode project'
-      inputs:
-        script: |
-          xcodebuild -project $(project) \
-                     -scheme $(scheme) \
-                     -sdk iphonesimulator \
-                     -destination 'platform=iOS Simulator,name=iPhone 14,OS=17.4' \
-                     build
+          - script: |
+              echo "Building Xcode project..."
+              xcodebuild -project $(project) \
+                         -scheme $(scheme) \
+                         -sdk iphonesimulator \
+                         -destination 'platform=iOS Simulator,name=iPhone 14,OS=17.4' \
+                         CODE_SIGN_IDENTITY="" \
+                         CODE_SIGNING_REQUIRED=NO \
+                         build
+            displayName: 'Build Xcode project'
 
-    - task: CmdLine@2
-      displayName: 'Run Unit Tests with Coverage'
-      inputs:
-        script: |
-          xcodebuild test \
-                     -project $(project) \
-                     -scheme $(scheme) \
-                     -sdk iphonesimulator \
-                     -destination 'platform=iOS Simulator,name=iPhone 14,OS=17.4' \
-                     -enableCodeCoverage YES \
-                     | tee xcode-test.log
-
-    - task: CmdLine@2
-      displayName: 'Check Test Coverage'
-      inputs:
-        script: |
-          DERIVED_DATA=$(xcodebuild -project $(project) -scheme $(scheme) -showBuildSettings | grep -m1 'OBJROOT =' | awk '{print $3}' | sed 's|/Build/Intermediates.noindex|/Build/Intermediates.noindex/CodeCoverage|')
-          PROF_DATA=$(find "$DERIVED_DATA" -name '*.profdata' | head -n 1)
-          APP_BINARY=$_
+          - script: |
+              echo "Running unit tests with coverage..."
+              xcodebuild test \
+                         -project $(project) \
+                         -scheme $(scheme) \
+                         -sdk iphonesimulator \
+                         -destination 'platform=iOS Simulator,name=iPhone 14,OS=17.4' \
+                         -enableCodeCoverage YES \
+                         | tee xcode-test.log
+            displayName: 'Run Unit Tests with Coverage'
