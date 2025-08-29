@@ -1,5 +1,7 @@
 trigger:
-  - master
+  branches:
+    include:
+      - master
 
 pool:
   vmImage: 'macos-latest'
@@ -10,39 +12,38 @@ variables:
   testCoverageThreshold: 85
 
 stages:
-  - stage: BuildAndTest
-    jobs:
-      - job: Build
-        steps:
-          - task: Checkout@1
+- stage: BuildAndTest
+  jobs:
+  - job: Build
+    steps:
+    - task: Checkout@1
 
-          - script: |
-              xcodebuild -project $(project) \
-                         -scheme $(scheme) \
-                         -sdk iphonesimulator \
-                         -destination 'platform=iOS Simulator,name=iPhone 14,OS=17.4' \
-                         build
-            displayName: 'Build Xcode project'
+    - task: CmdLine@2
+      displayName: 'Build Xcode project'
+      inputs:
+        script: |
+          xcodebuild -project $(project) \
+                     -scheme $(scheme) \
+                     -sdk iphonesimulator \
+                     -destination 'platform=iOS Simulator,name=iPhone 14,OS=17.4' \
+                     build
 
-          - script: |
-              xcodebuild test \
-                         -project $(project) \
-                         -scheme $(scheme) \
-                         -sdk iphonesimulator \
-                         -destination 'platform=iOS Simulator,name=iPhone 14,OS=17.4' \
-                         -enableCodeCoverage YES \
-                         | tee xcode-test.log
-            displayName: 'Run Unit Tests with Coverage'
+    - task: CmdLine@2
+      displayName: 'Run Unit Tests with Coverage'
+      inputs:
+        script: |
+          xcodebuild test \
+                     -project $(project) \
+                     -scheme $(scheme) \
+                     -sdk iphonesimulator \
+                     -destination 'platform=iOS Simulator,name=iPhone 14,OS=17.4' \
+                     -enableCodeCoverage YES \
+                     | tee xcode-test.log
 
-          - script: |
-              COVERAGE=$(xcrun llvm-cov report \
-                           -instr-profile $(BUILD_SOURCESDIRECTORY)/$(scheme)/DerivedData/Build/Intermediates.noindex/CodeCoverage.profdata \
-                           $(BUILD_SOURCESDIRECTORY)/$(scheme)/DerivedData/Build/Products/Debug-iphonesimulator/$(scheme).app/$(scheme) \
-                           | grep 'TOTAL' | awk '{print $2}' | sed 's/%//')
-              echo "Coverage: $COVERAGE%"
-              if (( $(echo "$COVERAGE < $(testCoverageThreshold)" | bc -l) )); then
-                  echo "Code coverage is below threshold ($(testCoverageThreshold)%)"
-                  exit 1
-              fi
-            displayName: 'Check Test Coverage'
-
+    - task: CmdLine@2
+      displayName: 'Check Test Coverage'
+      inputs:
+        script: |
+          DERIVED_DATA=$(xcodebuild -project $(project) -scheme $(scheme) -showBuildSettings | grep -m1 'OBJROOT =' | awk '{print $3}' | sed 's|/Build/Intermediates.noindex|/Build/Intermediates.noindex/CodeCoverage|')
+          PROF_DATA=$(find "$DERIVED_DATA" -name '*.profdata' | head -n 1)
+          APP_BINARY=$_
