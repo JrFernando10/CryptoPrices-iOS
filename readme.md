@@ -31,6 +31,7 @@ https://api.coingecko.com/api/v3/coins/markets?vs_currency=eur&order=market_cap_
 - Swift 5.7 / Xcode 13.2.1
 - iOS 14+
 - UIKit
+- MVVM Architecture
 
 ## Installation
 
